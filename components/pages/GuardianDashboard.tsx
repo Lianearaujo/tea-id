@@ -1,13 +1,9 @@
-// src/components/pages/GuardianDashboard.tsx
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { User, Patient } from '../../types.ts';
 import Header from '../dashboard/Header.tsx';
-// (Você precisará de um hook de dados, por enquanto usamos mock)
-// import { useData } from '../../hooks/useData.ts'; 
 
-// --- MOCK DATA ---
-// (Em um app real, isso viria do hook useData)
 const MOCK_GUARDIAN_PATIENTS: Patient[] = [
     {
         id: 'patient-01',
@@ -16,39 +12,42 @@ const MOCK_GUARDIAN_PATIENTS: Patient[] = [
         diagnosis: 'Transtorno do Espectro Autista (TEA)',
         avatarUrl: `https://api.dicebear.com/8.x/adventurer/svg?seed=Lucas&backgroundColor=b6e3f4`,
         organizationId: 'org-01',
-        guardianId: 'guardian-01', // ID do usuário Responsável
+        guardianId: 'guardian-01', 
         assignedProfessionalIds: ['prof-01']
     }
 ];
-// --- FIM MOCK DATA ---
 
-interface GuardianDashboardProps {
-  user: User;
-  onLogout: () => void;
-  onSelectPatient: (patient: Patient) => void;
-}
-
-const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ user, onLogout, onSelectPatient }) => {
+const GuardianDashboard: React.FC = () => {
     const [patients, setPatients] = useState<Patient[]>([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+    
+    // Em um app real, o usuário viria de um contexto ou hook de autenticação
+    // Por enquanto, vamos simular que ele está disponível
+    const mockUser: User = { 
+        id: 'guardian-01', 
+        name: 'Responsável Exemplo', 
+        email: 'responsavel@example.com', 
+        profileType: 'responsavel', 
+        documentId: '123.456.789-00',
+        createdAt: new Date(),
+    };
 
     useEffect(() => {
-        // ** PONTO DE INTEGRAÇÃO REAL **
-        // const { data, loading } = useData().getPatientsForGuardian(user.id);
-        // setPatients(data);
-        // setLoading(loading);
-        
-        // Simulação:
         setLoading(true);
         setTimeout(() => {
             setPatients(MOCK_GUARDIAN_PATIENTS);
             setLoading(false);
         }, 500);
-    }, [user.id]);
+    }, []);
+
+    const handleSelectPatient = (patient: Patient) => {
+        navigate(`/patient/${patient.id}`);
+    };
 
     return (
         <div className="min-h-screen bg-slate-100">
-            <Header user={user} onLogout={onLogout} />
+            <Header />
             <main className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
                 <h1 className="text-2xl font-bold text-slate-800 mb-6">Seus Dependentes</h1>
                 {loading ? (
@@ -58,7 +57,7 @@ const GuardianDashboard: React.FC<GuardianDashboardProps> = ({ user, onLogout, o
                         {patients.length > 0 ? patients.map(patient => (
                             <button
                                 key={patient.id}
-                                onClick={() => onSelectPatient(patient)}
+                                onClick={() => handleSelectPatient(patient)}
                                 className="w-full text-left bg-white p-4 rounded-lg shadow-sm border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all"
                             >
                                 <div className="flex items-center gap-4">

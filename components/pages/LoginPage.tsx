@@ -1,37 +1,30 @@
-// src/components/pages/LoginPage.tsx
 
 import React, { useState, FormEvent } from 'react';
-// Importa o tipo User
-import type { User } from '../../types.ts'; 
-import { useAuth } from '../../hooks/useAuth.ts';
-import Card from '../ui/Card.tsx';
-import Input from '../ui/Input.tsx';
-import Button from '../ui/Button.tsx';
-import LogoIcon from '../icons/LogoIcon.tsx';
-import AtSymbolIcon from '../icons/AtSymbolIcon.tsx';
-import LockIcon from '../icons/LockIcon.tsx';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext'; 
+import Card from '../ui/Card';
+import Input from '../ui/Input';
+import Button from '../ui/Button';
+import LogoIcon from '../icons/LogoIcon';
+import AtSymbolIcon from '../icons/AtSymbolIcon';
+import LockIcon from '../icons/LockIcon';
 
-interface LoginPageProps {
-  onNavigateToRegister: () => void;
-  onLoginSuccess: (user: User) => void;
-}
-
-const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister, onLoginSuccess }) => {
-  // **REMOVIDO:** 'activeProfile' state não é mais necessário
+const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('admin@admin.com');
   const [password, setPassword] = useState('admin');
-  const { login, loading, error } = useAuth();
+  // ATUALIZAÇÃO: Usando actionLoading para o feedback do botão
+  const { login, actionLoading, error } = useAuth();
+  const navigate = useNavigate();
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    // **MODIFICADO:** Chamada de login não passa mais 'activeProfile'
-    const user = await login(email, password);
-    if (user) {
-      onLoginSuccess(user);
-    }
+    // A lógica de navegação já é tratada pelo App.tsx
+    await login(email, password);
   };
 
-  // **REMOVIDO:** Componente 'ProfileSelector' foi removido.
+  const navigateToRegister = () => {
+    navigate('/register');
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-cyan-50 p-4">
@@ -46,8 +39,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister, onLoginSucc
           </p>
         </div>
 
-        {/* **REMOVIDO:** O <ProfileSelector /> não está mais aqui. */}
-
         <form onSubmit={handleLogin} className="space-y-6">
           <Input
             id="email"
@@ -58,6 +49,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister, onLoginSucc
             required
             autoComplete="email"
             icon={<AtSymbolIcon />}
+            disabled={actionLoading} // Desabilita o input durante o carregamento
           />
           <Input
             id="password"
@@ -68,10 +60,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister, onLoginSucc
             required
             autoComplete="current-password"
             icon={<LockIcon />}
+            disabled={actionLoading} // Desabilita o input durante o carregamento
           />
 
           <div className="text-right text-sm">
-            <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+            <a href="#" className={`font-medium text-indigo-600 hover:text-indigo-500 ${actionLoading ? 'pointer-events-none' : ''}`}>
               Esqueceu sua senha?
             </a>
           </div>
@@ -82,13 +75,19 @@ const LoginPage: React.FC<LoginPageProps> = ({ onNavigateToRegister, onLoginSucc
             </div>
           )}
 
-          <Button type="submit" loading={loading} fullWidth>
+          {/* ATUALIZAÇÃO: Passando o actionLoading para o botão */}
+          <Button type="submit" loading={actionLoading} fullWidth>
             Entrar
           </Button>
 
           <p className="mt-8 text-center text-sm text-slate-600">
             Não tem uma conta?{' '}
-            <button type="button" onClick={onNavigateToRegister} className="font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none">
+            <button 
+              type="button" 
+              onClick={navigateToRegister} 
+              className={`font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none ${actionLoading ? 'pointer-events-none' : ''}`}
+              disabled={actionLoading}
+            >
               Cadastre-se
             </button>
           </p>

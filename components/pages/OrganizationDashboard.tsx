@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { User, Patient } from '../../types.ts';
 import Header from '../dashboard/Header.tsx';
-import Button from '../ui/Button.tsx'; 
-// import { useData } from '../../hooks/useData.ts'; 
+import Button from '../ui/Button.tsx';
 
-// --- MOCK DATA ---
 const MOCK_ORG_PATIENTS: Patient[] = [
     {
         id: 'patient-01',
@@ -25,60 +25,59 @@ const MOCK_ORG_PROFESSIONALS: Partial<User>[] = [
         documentId: '123.456.789-00'
     }
 ];
-// --- FIM MOCK DATA ---
 
-interface OrganizationDashboardProps {
-  user: User;
-  onLogout: () => void;
-  onSelectPatient: (patient: Patient) => void;
-}
-
-const OrganizationDashboard: React.FC<OrganizationDashboardProps> = ({ user, onLogout, onSelectPatient }) => {
+const OrganizationDashboard: React.FC = () => {
     const [tab, setTab] = useState<'patients' | 'professionals'>('patients');
     const [patients, setPatients] = useState<Patient[]>([]);
     const [professionals, setProfessionals] = useState<Partial<User>[]>([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+    
+    // Simulação do usuário logado
+    const mockUser: User = {
+        id: 'org-01',
+        name: 'Clínica Cuidar',
+        email: 'contato@cuidar.com',
+        profileType: 'organization',
+        documentId: '12.345.678/0001-99',
+        createdAt: new Date(),
+    };
 
     useEffect(() => {
-        // ** PONTO DE INTEGRAÇÃO REAL **
-        // const { data: patientData } = useData().getPatientsForOrganization(user.id);
-        // const { data: profData } = useData().getProfessionalsForOrganization(user.id);
-        
-        // Simulação:
         setLoading(true);
         setTimeout(() => {
             setPatients(MOCK_ORG_PATIENTS);
             setProfessionals(MOCK_ORG_PROFESSIONALS);
             setLoading(false);
         }, 500);
-    }, [user.id]);
+    }, []);
+
+    const handleSelectPatient = (patient: Patient) => {
+        navigate(`/patient/${patient.id}`);
+    };
 
     const handleInviteProfessional = () => {
         const cpf = prompt("Digite o CPF do profissional:");
         if (cpf) {
-            // ** LÓGICA DE BACKEND (Firebase Function) **
             alert(`Lógica de convite/vínculo para o CPF: ${cpf} seria executada aqui.`);
         }
     };
     
     const handleAddPatient = () => {
-         // (Abriria um modal com um formulário para criar um novo Paciente)
          alert('Abriria um formulário para adicionar um novo paciente.');
     };
     
     const handleAssignProfessional = (patientId: string) => {
         const profId = prompt("Digite o ID do profissional para vincular a este paciente:");
-         // ** LÓGICA DE BACKEND **
          alert(`Vincular profissional ${profId} ao paciente ${patientId}`);
     };
 
     return (
         <div className="min-h-screen bg-slate-100">
-            <Header user={user} onLogout={onLogout} />
+            <Header />
             <main className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">
                 <h1 className="text-2xl font-bold text-slate-800 mb-6">Painel da Organização</h1>
                 
-                {/* Abas de Navegação */}
                 <div className="border-b border-slate-200 mb-6">
                     <nav className="-mb-px flex space-x-8" aria-label="Tabs">
                         <button
@@ -106,7 +105,6 @@ const OrganizationDashboard: React.FC<OrganizationDashboardProps> = ({ user, onL
 
                 {loading ? <p>Carregando...</p> : (
                     <div>
-                        {/* Conteúdo da Aba Pacientes */}
                         {tab === 'patients' && (
                             <div className="space-y-4">
                                 <Button onClick={handleAddPatient}>Adicionar Novo Paciente</Button>
@@ -120,18 +118,11 @@ const OrganizationDashboard: React.FC<OrganizationDashboardProps> = ({ user, onL
                                                     <p className="text-sm text-slate-500">Profissionais: {patient.assignedProfessionalIds.length}</p>
                                                 </div>
                                             </div>
-                                            {/* **FIX AQUI** - Removidas as props 'variant' e 'size' */}
-                                            {/* Para estilizar, teríamos que:
-                                                1. Modificar o componente Button.tsx para aceitar 'variant' e 'size', ou
-                                                2. Aplicar classes CSS/Tailwind diretamente aqui.
-                                                
-                                                Por enquanto, a remoção simples corrige o erro.
-                                            */}
                                             <div className="flex gap-2 flex-wrap">
                                                  <Button onClick={() => handleAssignProfessional(patient.id)}>
                                                     Vincular Profissional
                                                  </Button>
-                                                <Button onClick={() => onSelectPatient(patient)}>
+                                                <Button onClick={() => handleSelectPatient(patient)}>
                                                     Ver Detalhes
                                                 </Button>
                                             </div>
@@ -141,7 +132,6 @@ const OrganizationDashboard: React.FC<OrganizationDashboardProps> = ({ user, onL
                             </div>
                         )}
                         
-                        {/* Conteúdo da Aba Profissionais */}
                         {tab === 'professionals' && (
                             <div className="space-y-4">
                                 <Button onClick={handleInviteProfessional}>Vincular Profissional (por CPF)</Button>

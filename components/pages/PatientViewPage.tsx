@@ -1,23 +1,37 @@
-// src/components/pages/PatientViewPage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import type { User, Patient, Session, TherapyType } from '../../types.ts';
+import { useAuth } from '../../contexts/AuthContext'; // CORREÇÃO: Importa do novo contexto
 import Header from '../dashboard/Header.tsx';
 import PatientProfile from '../dashboard/PatientProfile.tsx';
 import SessionLogger from '../dashboard/SessionLogger.tsx';
 import SessionList from '../dashboard/SessionList.tsx';
 import AnalysisRequester from '../dashboard/AnalysisRequester.tsx';
-// (Você precisará de um ícone de "Voltar")
-// import ArrowLeftIcon from '../icons/ArrowLeftIcon.tsx'; 
 
-interface PatientViewPageProps {
-  user: User;
-  patient: Patient;
-  onLogout: () => void;
-  onBack: () => void; // Função para voltar ao dashboard
-}
+const MOCK_PATIENTS: Patient[] = [
+    {
+        id: 'patient-01',
+        name: 'Lucas Almeida',
+        birthDate: '2018-05-15',
+        diagnosis: 'Transtorno do Espectro Autista (TEA)',
+        avatarUrl: `https://api.dicebear.com/8.x/adventurer/svg?seed=Lucas&backgroundColor=b6e3f4`,
+        organizationId: 'org-01',
+        guardianId: 'guardian-01',
+        assignedProfessionalIds: ['prof-01']
+    },
+    {
+        id: 'patient-02',
+        name: 'Mariana Silva',
+        birthDate: '2019-02-10',
+        diagnosis: 'Atraso de Fala',
+        avatarUrl: `https://api.dicebear.com/8.x/adventurer/svg?seed=Mariana&backgroundColor=c0aede`,
+        organizationId: 'org-02',
+        guardianId: 'guardian-02',
+        assignedProfessionalIds: ['prof-01']
+    }
+];
 
-// MOCK_SESSIONS agora devem pertencer a um paciente específico
 const MOCK_SESSIONS: Session[] = [
     {
         id: 'session-01',
@@ -29,15 +43,35 @@ const MOCK_SESSIONS: Session[] = [
         notes: 'Sessão focada em fonemas bilabiais...',
         aiFeedback: 'Padrão de dificuldade de atenção identificado...'
     },
-    // ... outras sessoes
 ];
 
-const PatientViewPage: React.FC<PatientViewPageProps> = ({ user, patient, onLogout, onBack }) => {
-    // Em um app real, você buscaria as sessões DESTE paciente
-    // ex: const { sessions } = useData(patient.id);
-    const [sessions, setSessions] = useState<Session[]>(MOCK_SESSIONS);
+const PatientViewPage: React.FC = () => {
+    const { patientId } = useParams<{ patientId: string }>();
+    const { user } = useAuth();
+    const navigate = useNavigate();
+
+    const [patient, setPatient] = useState<Patient | null>(null);
+    const [sessions, setSessions] = useState<Session[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        setLoading(true);
+        setTimeout(() => {
+            const foundPatient = MOCK_PATIENTS.find(p => p.id === patientId);
+            if (foundPatient) {
+                setPatient(foundPatient);
+                const patientSessions = MOCK_SESSIONS.filter(s => s.patientId === patientId);
+                setSessions(patientSessions);
+            } else {
+                navigate('/');
+            }
+            setLoading(false);
+        }, 500);
+    }, [patientId, navigate]);
 
     const handleSaveSession = (notes: string, therapyType: TherapyType, audioBlob?: Blob) => {
+        if (!user || !patient) return;
+
         const newSession: Session = {
             id: `session-${Date.now()}`,
             date: new Date().toISOString(),
@@ -47,60 +81,56 @@ const PatientViewPage: React.FC<PatientViewPageProps> = ({ user, patient, onLogo
             therapyType,
             notes,
             audioUrl: audioBlob ? URL.createObjectURL(audioBlob) : undefined,
-            aiFeedback: 'Análise pendente. O áudio/texto está sendo processado.'
+            aiFeedback: 'Análise pendente...'
         };
         
-        // ** PONTO DE INTEGRAÇÃO REAL **
-        // Aqui você salvaria a sessão no Firestore, ex:
-        // await addDoc(collection(db, "patients", patient.id, "sessions"), newSession);
-        console.log("Saving session for patient " + patient.id, newSession);
-
+        console.log("Salvando sessão para o paciente " + patient.id, newSession);
         setSessions(prevSessions => [newSession, ...prevSessions]);
     };
 
     const handleRequestAnalysis = (query: string) => {
-        // ** PONTO DE INTEGRAÇÃO REAL **
+        if (!patient) return;
         console.log(`Requesting analysis for patient ${patient.name}:`, query);
         alert(`Pedido de análise enviado: "${query}".`);
     };
 
-    // Decide se o usuário pode registrar sessões (é um profissional?)
+    if (loading || !patient || !user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-100">
+                <p className="text-lg font-medium text-slate-600">Carregando dados do paciente...</p>
+            </div>
+        );
+    }
+
     const canLogSessions = user.profileType === 'profissional' && 
                            patient.assignedProfessionalIds.includes(user.id);
 
-  return (
-    <div className="min-h-screen bg-slate-100">
-      <Header user={user} onLogout={onLogout} />
-      <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-        
-        {/* Botão de Voltar */}
-        <div className="mb-4">
-            <button 
-                onClick={onBack}
-                className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors"
-            >
-                {/* <ArrowLeftIcon className="h-4 w-4" /> */}
-                <span>Voltar ao Painel</span>
-            </button>
-        </div>
+    return (
+        <div className="min-h-screen bg-slate-100">
+            <Header />
+            <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+                <div className="mb-4">
+                    <button 
+                        onClick={() => navigate(-1)} 
+                        className="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors"
+                    >
+                        <span>&larr; Voltar</span>
+                    </button>
+                </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column */}
-            <div className="lg:col-span-1 space-y-8">
-                <PatientProfile patient={patient} />
-                <AnalysisRequester onRequest={handleRequestAnalysis} />
-            </div>
-
-            {/* Right Column */}
-            <div className="lg:col-span-2 space-y-8">
-                {/* Só mostra o logger se for um profissional vinculado */}
-                {canLogSessions && <SessionLogger onSave={handleSaveSession} />}
-                <SessionList sessions={sessions} />
-            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-1 space-y-8">
+                        <PatientProfile patient={patient} />
+                        <AnalysisRequester onRequest={handleRequestAnalysis} />
+                    </div>
+                    <div className="lg:col-span-2 space-y-8">
+                        {canLogSessions && <SessionLogger onSave={handleSaveSession} />}
+                        <SessionList sessions={sessions} />
+                    </div>
+                </div>
+            </main>
         </div>
-      </main>
-    </div>
-  );
+    );
 };
 
 export default PatientViewPage;

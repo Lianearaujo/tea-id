@@ -1,175 +1,107 @@
-// src/App.tsx
 
-import React, { useState, useEffect } from 'react'; // Importe o useEffect
-import LoginPage from './components/pages/LoginPage.tsx';
-import RegisterPage from './components/pages/RegisterPage.tsx';
+import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext'; // Importa o hook do novo contexto
+import LoginPage from './components/pages/LoginPage';
+import RegisterPage from './components/pages/RegisterPage';
+import GuardianDashboard from './components/pages/GuardianDashboard';
+import ProfessionalDashboard from './components/pages/ProfessionalDashboard';
+import OrganizationDashboard from './components/pages/OrganizationDashboard';
+import PatientViewPage from './components/pages/PatientViewPage';
+import type { User } from './types';
 
-// Importa os painéis
-import GuardianDashboard from './components/pages/GuardianDashboard.tsx';
-import ProfessionalDashboard from './components/pages/ProfessionalDashboard.tsx';
-import OrganizationDashboard from './components/pages/OrganizationDashboard.tsx';
-import PatientViewPage from './components/pages/PatientViewPage.tsx';
-
-// **IMPORTS CRUCIAIS PARA SESSÃO**
-import { useAuth, auth, db } from './hooks/useAuth.ts'; // Importa auth e db
-import { onAuthStateChanged } from "firebase/auth"; // O "ouvinte"
-import { doc, getDoc } from "firebase/firestore"; // Para buscar o perfil
-import type { User, Patient } from './types.ts';
-
-type AuthPage = 'login' | 'register';
-type AppView = 'auth' | 'dashboard' | 'patient_view';
-
-/** Um componente de loading simples */
+// Tela de carregamento global
 const LoadingScreen: React.FC = () => (
   <div className="min-h-screen flex items-center justify-center bg-slate-100">
-    <p className="text-lg font-medium text-slate-600">Carregando sessão...</p>
+    <p className="text-lg font-medium text-slate-600">Carregando...</p>
   </div>
 );
 
+// Componente para proteger rotas
+// Redireciona para o login se não houver usuário
+const ProtectedRoute: React.FC<{ user: User | null; children: JSX.Element }> = ({ user, children }) => {
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
+// Componente para rotas públicas (login/registro)
+// Redireciona para o dashboard se o usuário já estiver logado
+const PublicRoute: React.FC<{ user: User | null; children: JSX.Element }> = ({ user, children }) => {
+  if (user) {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
+
+
+// Componente que decide qual dashboard renderizar
+const DashboardRedirect: React.FC<{ user: User }> = ({ user }) => {
+  switch (user.profileType) {
+    case 'organization':
+      return <OrganizationDashboard />;
+    case 'profissional':
+      return <ProfessionalDashboard />;
+    case 'responsavel':
+      return <GuardianDashboard />;
+    default:
+      // Em caso de perfil desconhecido, volta para o login.
+      return <Navigate to="/login" replace />;
+  }
+};
+
 function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [authPage, setAuthPage] = useState<AuthPage>('login');
-  
-  const [view, setView] = useState<AppView>('auth');
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  
-  // Controla o carregamento inicial da autenticação
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  
-  const { logout } = useAuth(); // Ações ainda vêm do hook
+  // O estado do usuário e o carregamento vêm agora do AuthProvider
+  const { user, loading } = useAuth();
 
-  // **ESTE É O CÓDIGO QUE RESOLVE O "RELOAD"**
-  useEffect(() => {
-    // onAuthStateChanged retorna uma função 'unsubscribe'
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Usuário está logado no Firebase Auth
-        // Agora, buscamos o perfil dele no Firestore
-        console.log("Sessão Auth encontrada, buscando perfil no Firestore...");
-        try {
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists()) {
-            const completeUser = { id: firebaseUser.uid, ...userDoc.data() } as User;
-            setUser(completeUser);
-            setView('dashboard');
-          } else {
-            // Raro: Usuário no Auth, mas sem perfil no Firestore
-            console.error("Erro: Usuário autenticado sem perfil no Firestore.");
-            await logout(); // Desloga o usuário problemático
-            setUser(null);
-            setView('auth');
-          }
-        } catch (error) {
-           // **AQUI ESTÁ O SEU ERRO "OFFLINE"**
-           // Se o getDoc() falhar (ex: offline, ou Firestore desabilitado)
-           console.error("Falha ao buscar perfil do usuário (pode ser offline):", error);
-           // Não podemos prosseguir, deslogamos
-           await logout();
-           setUser(null);
-           setView('auth');
-        }
-      } else {
-        // Usuário não está logado
-        setUser(null);
-        setView('auth');
-      }
-      // Terminamos de verificar a autenticação
-      setIsLoadingAuth(false);
-    });
-
-    // Limpa o "ouvinte" quando o componente App for desmontado
-    return () => unsubscribe();
-  }, [logout]); // 'logout' é uma dependência do hook
-
-  const handleLoginSuccess = (loggedInUser: User) => {
-    setUser(loggedInUser);
-    setView('dashboard'); 
-  };
-
-  const handleLogout = () => {
-    logout();
-    setUser(null);
-    setView('auth');
-    setAuthPage('login');
-  };
-
-  const navigateToRegister = () => setAuthPage('register');
-  const navigateToLogin = () => setAuthPage('login');
-
-  const handleSelectPatient = (patient: Patient) => {
-    setSelectedPatient(patient);
-    setView('patient_view');
-  };
-
-  const handleBackToDashboard = () => {
-    setSelectedPatient(null);
-    setView('dashboard');
-  };
-
-  // 1. Mostra "Carregando" enquanto verifica a sessão
-  if (isLoadingAuth) {
+  // Mostra uma tela de carregamento enquanto o estado de autenticação é verificado
+  if (loading) {
     return <LoadingScreen />;
   }
 
-  // 2. Roteamento de Autenticação (Usuário deslogado)
-  if (!user || view === 'auth') {
-    return (
-      <main>
-        {authPage === 'login' && <LoginPage onLoginSuccess={handleLoginSuccess} onNavigateToRegister={navigateToRegister} />}
-        {authPage === 'register' && <RegisterPage onNavigateToLogin={navigateToLogin} />}
-      </main>
-    );
-  }
-
-  // 3. Roteamento para a Visão Detalhada do Paciente
-  if (view === 'patient_view' && selectedPatient) {
-    return (
-      <PatientViewPage
-        user={user}
-        patient={selectedPatient}
-        onLogout={handleLogout}
-        onBack={handleBackToDashboard}
+  return (
+    <Routes>
+      {/* Rotas Públicas */}
+      <Route 
+        path="/login" 
+        element={
+          <PublicRoute user={user}>
+            <LoginPage />
+          </PublicRoute>
+        }
       />
-    );
-  }
-  
-  // 4. Roteamento para os Painéis Principais (Dashboard)
-  if (view === 'dashboard') {
-    switch (user.profileType) {
-      case 'organization':
-        return (
-          <OrganizationDashboard
-            user={user}
-            onLogout={handleLogout}
-            onSelectPatient={handleSelectPatient}
-          />
-        );
-      case 'profissional':
-        return (
-          <ProfessionalDashboard
-            user={user}
-            onLogout={handleLogout}
-            onSelectPatient={handleSelectPatient}
-          />
-        );
-      case 'responsavel':
-        return (
-          <GuardianDashboard
-            user={user}
-            onLogout={handleLogout}
-            onSelectPatient={handleSelectPatient}
-          />
-        );
-      default:
-        handleLogout();
-        return null;
-    }
-  }
+      <Route 
+        path="/register" 
+        element={
+          <PublicRoute user={user}>
+            <RegisterPage />
+          </PublicRoute>
+        }
+      />
 
-  // Fallback
-  return <LoadingScreen />;
+      {/* Rotas Protegidas */}
+      <Route 
+        path="/" 
+        element={
+          <ProtectedRoute user={user}>
+            <DashboardRedirect user={user!} />
+          </ProtectedRoute>
+        }
+      />
+      <Route 
+        path="/patient/:patientId" 
+        element={
+          <ProtectedRoute user={user}>
+            <PatientViewPage />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Rota Fallback: Redireciona qualquer outra URL para a raiz */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
 export default App;

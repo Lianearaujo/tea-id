@@ -1,9 +1,8 @@
-// src/components/pages/RegisterPage.tsx
 
 import React, { useState, FormEvent } from 'react';
-// Importa o novo ProfileType
+import { useNavigate } from 'react-router-dom';
 import type { ProfileType } from '../../types.ts'; 
-import { useAuth } from '../../hooks/useAuth.ts';
+import { useAuth } from '../../contexts/AuthContext';
 import Card from '../ui/Card.tsx';
 import Input from '../ui/Input.tsx';
 import Button from '../ui/Button.tsx';
@@ -11,26 +10,19 @@ import LogoIcon from '../icons/LogoIcon.tsx';
 import UserIcon from '../icons/UserIcon.tsx';
 import AtSymbolIcon from '../icons/AtSymbolIcon.tsx';
 import LockIcon from '../icons/LockIcon.tsx';
-// Ícone genérico para documento
-import DocumentIcon from '../icons/LockIcon.tsx'; // (Você precisaria criar este ícone)
+import DocumentIcon from '../icons/LockIcon.tsx';
 
-
-interface RegisterPageProps {
-  onNavigateToLogin: () => void;
-}
-
-const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
-  // 'profissional' foi removido das opções de auto-registro
+const RegisterPage: React.FC = () => {
   const [activeProfile, setActiveProfile] = useState<ProfileType>('responsavel');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  // **NOVO:** Estado para CPF/CNPJ
   const [documentId, setDocumentId] = useState(''); 
   
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const { register, loading, error } = useAuth();
+  const { register, actionLoading, error } = useAuth(); // ATUALIZAÇÃO
+  const navigate = useNavigate();
 
   const handleRegister = async (e: FormEvent) => {
     e.preventDefault();
@@ -39,19 +31,17 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
       setPasswordError("As senhas não coincidem.");
       return;
     }
-    // **MODIFICADO:** Passa 'documentId' para a função 'register'
     const success = await register(name, email, password, activeProfile, documentId);
     
     if (success) {
-      // Navega para o login após registro bem-sucedido
-      onNavigateToLogin(); 
+      navigate('/login'); 
     }
   };
+  
+  const navigateToLogin = () => {
+    navigate('/login');
+  };
 
-  /**
-   * **PROFILE SELECTOR MODIFICADO**
-   * Agora mostra 'Responsável' e 'Organização'
-   */
   const ProfileSelector: React.FC = () => (
     <div className="grid grid-cols-2 gap-2 mb-6 bg-slate-100 p-1 rounded-lg">
       <button
@@ -63,12 +53,12 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
             ? 'bg-white text-indigo-600 shadow-sm'
             : 'bg-transparent text-slate-600 hover:bg-slate-200'
         }`}
+        disabled={actionLoading}
       >
         Sou Responsável
       </button>
       <button
         type="button"
-        // **MODIFICADO:** Opção para 'organization'
         onClick={() => setActiveProfile('organization')}
         aria-pressed={activeProfile === 'organization'}
         className={`px-4 py-2 text-sm font-semibold rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
@@ -76,6 +66,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
             ? 'bg-white text-indigo-600 shadow-sm'
             : 'bg-transparent text-slate-600 hover:bg-slate-200'
         }`}
+        disabled={actionLoading}
       >
         Sou Organização
       </button>
@@ -101,15 +92,14 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
           <Input
             id="name"
             type="text"
-            // **MODIFICADO:** Label dinâmico
             label={activeProfile === 'responsavel' ? 'Nome Completo' : 'Nome da Organização'}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             autoComplete="name"
             icon={<UserIcon />}
+            disabled={actionLoading}
           />
-          {/* **NOVO CAMPO: CPF/CNPJ** */}
           <Input
             id="documentId"
             type="text"
@@ -118,7 +108,8 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
             onChange={(e) => setDocumentId(e.target.value)}
             required
             autoComplete="off"
-            icon={<DocumentIcon />} // (Ícone fictício)
+            icon={<DocumentIcon />}
+            disabled={actionLoading}
           />
           <Input
             id="email-register"
@@ -129,6 +120,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
             required
             autoComplete="email"
             icon={<AtSymbolIcon />}
+            disabled={actionLoading}
           />
           <Input
             id="password-register"
@@ -139,6 +131,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
             required
             autoComplete="new-password"
             icon={<LockIcon />}
+            disabled={actionLoading}
           />
           <Input
             id="confirm-password"
@@ -149,6 +142,7 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
             required
             autoComplete="new-password"
             icon={<LockIcon />}
+            disabled={actionLoading}
           />
 
           {(error || passwordError) && (
@@ -158,14 +152,19 @@ const RegisterPage: React.FC<RegisterPageProps> = ({ onNavigateToLogin }) => {
           )}
 
           <div className="pt-2">
-            <Button type="submit" loading={loading} fullWidth>
+            <Button type="submit" loading={actionLoading} fullWidth>
               Cadastrar
             </Button>
           </div>
 
           <p className="mt-6 text-center text-sm text-slate-600">
             Já tem uma conta?{' '}
-            <button type="button" onClick={onNavigateToLogin} className="font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none">
+            <button 
+              type="button" 
+              onClick={navigateToLogin} 
+              className={`font-medium text-indigo-600 hover:text-indigo-500 focus:outline-none ${actionLoading ? 'pointer-events-none' : ''}`}
+              disabled={actionLoading}
+            >
               Faça o login
             </button>
           </p>
