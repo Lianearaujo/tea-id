@@ -1,24 +1,22 @@
 
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext'; 
-import Card from '../ui/Card';
-import Input from '../ui/Input';
-import Button from '../ui/Button';
-import LogoIcon from '../icons/LogoIcon';
-import AtSymbolIcon from '../icons/AtSymbolIcon';
-import LockIcon from '../icons/LockIcon';
+import { useAuth } from '../contexts/AuthContext'; 
+import Card from '../components/ui/Card';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import LogoIcon from '../components/icons/LogoIcon';
+import AtSymbolIcon from '../components/icons/AtSymbolIcon';
+import LockIcon from '../components/icons/LockIcon';
 
 const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('admin@admin.com');
   const [password, setPassword] = useState('admin');
-  // ATUALIZAÇÃO: Usando actionLoading para o feedback do botão
   const { login, actionLoading, error } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
-    // A lógica de navegação já é tratada pelo App.tsx
     await login(email, password);
   };
 
@@ -49,7 +47,7 @@ const LoginPage: React.FC = () => {
             required
             autoComplete="email"
             icon={<AtSymbolIcon />}
-            disabled={actionLoading} // Desabilita o input durante o carregamento
+            disabled={actionLoading}
           />
           <Input
             id="password"
@@ -60,7 +58,7 @@ const LoginPage: React.FC = () => {
             required
             autoComplete="current-password"
             icon={<LockIcon />}
-            disabled={actionLoading} // Desabilita o input durante o carregamento
+            disabled={actionLoading}
           />
 
           <div className="text-right text-sm">
@@ -75,7 +73,6 @@ const LoginPage: React.FC = () => {
             </div>
           )}
 
-          {/* ATUALIZAÇÃO: Passando o actionLoading para o botão */}
           <Button type="submit" loading={actionLoading} fullWidth>
             Entrar
           </Button>

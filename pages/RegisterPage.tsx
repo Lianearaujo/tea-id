@@ -1,27 +1,28 @@
 
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { ProfileType } from '../../types.ts'; 
-import { useAuth } from '../../contexts/AuthContext';
-import Card from '../ui/Card.tsx';
-import Input from '../ui/Input.tsx';
-import Button from '../ui/Button.tsx';
-import LogoIcon from '../icons/LogoIcon.tsx';
-import UserIcon from '../icons/UserIcon.tsx';
-import AtSymbolIcon from '../icons/AtSymbolIcon.tsx';
-import LockIcon from '../icons/LockIcon.tsx';
-import DocumentIcon from '../icons/LockIcon.tsx';
+import type { ProfileType } from '../types'; 
+import { useAuth } from '../contexts/AuthContext';
+import Card from '../components/ui/Card';
+import Input from '../components/ui/Input';
+import Button from '../components/ui/Button';
+import LogoIcon from '../components/icons/LogoIcon';
+import UserIcon from '../components/icons/UserIcon';
+import AtSymbolIcon from '../components/icons/AtSymbolIcon';
+import LockIcon from '../components/icons/LockIcon';
+import DocumentIcon from '../components/icons/LockIcon';
 
 const RegisterPage: React.FC = () => {
   const [activeProfile, setActiveProfile] = useState<ProfileType>('responsavel');
   const [name, setName] = useState('');
+  const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [documentId, setDocumentId] = useState(''); 
   
   const [passwordError, setPasswordError] = useState<string | null>(null);
-  const { register, actionLoading, error } = useAuth(); // ATUALIZAÇÃO
+  const { register, actionLoading, error } = useAuth();
   const navigate = useNavigate();
 
   const handleRegister = async (e: FormEvent) => {
@@ -31,7 +32,7 @@ const RegisterPage: React.FC = () => {
       setPasswordError("As senhas não coincidem.");
       return;
     }
-    const success = await register(name, email, password, activeProfile, documentId);
+    const success = await register(name, cpf, email, password, activeProfile, documentId);
     
     if (success) {
       navigate('/login'); 

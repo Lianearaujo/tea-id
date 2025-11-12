@@ -1,38 +1,29 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import {
-  getAuth,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-} from "firebase/auth";
 import { 
-  initializeFirestore,
-  persistentLocalCache,
-  doc,
-  getDoc,
-  setDoc,
-} from "firebase/firestore";
+  getAuth, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged, 
+  User as FirebaseUser
+} from "firebase/auth";
 import { initializeApp } from "firebase/app";
-import type { User, ProfileType } from '../types';
+import type { User, ProfileType, UserCreate } from '../types';
+import api from '../services/api';
 
+// Importa a configuração do Firebase do arquivo JSON
+import firebaseConfig from '../firebase-config.json';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-// ATUALIZAÇÃO: Usando a nova API de persistência para eliminar o aviso.
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({})
-});
-
 interface AuthContextType {
   user: User | null;
-  loading: boolean; // Para o carregamento inicial da autenticação
-  actionLoading: boolean; // Para o carregamento de ações (login, registro)
+  loading: boolean;
+  actionLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<User | null>;
-  register: (name: string, email: string, password: string, profileType: ProfileType, documentId: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<void>; // Retorna void, a UI reage ao estado
+  register: (name: string, cpf: string, email: string, password: string, profileType: ProfileType, documentId: string) => Promise<boolean>;
   logout: () => Promise<void>;
 }
 
@@ -40,85 +31,89 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Carregamento inicial
-  const [actionLoading, setActionLoading] = useState(false); // Carregamento de ações
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Listener para o estado de autenticação do Firebase
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          setUser({ id: firebaseUser.uid, ...userDoc.data() } as User);
-        } else {
+      // Se temos um usuário no Firebase e um email, tentamos buscar os dados da nossa API
+      // Esta requisição será autenticada pelo cookie de sessão httpOnly
+      if (firebaseUser && firebaseUser.email) {
+        try {
+          const { data: apiUser } = await api.get<User>(`/api/v1/users/${firebaseUser.email}`);
+          setUser(apiUser);
+        } catch (err) {
+          console.error("Sessão não encontrada no backend. Deslogando...", err);
+          // Se a sessão no backend falhar, deslogamos do Firebase para manter a consistência
           await signOut(auth);
           setUser(null);
         }
       } else {
+        // Se não há usuário no Firebase, o estado local é limpo
         setUser(null);
       }
-      setLoading(false); // Finaliza o carregamento inicial
+      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
   const getFriendlyErrorMessage = (err: any): string => {
+    // Lógica simples para mensagens de erro
+    if (err.response && err.response.data && err.response.data.error) {
+        return err.response.data.error;
+    }
     if (err.code) {
-      switch (err.code) {
-        case 'auth/user-not-found':
-        case 'auth/wrong-password':
-          return 'E-mail ou senha inválidos.';
-        case 'auth/email-already-in-use':
-          return 'Este e-mail já está em uso.';
-        case 'auth/invalid-email':
-          return 'O formato do e-mail é inválido.';
-        case 'auth/weak-password':
-          return 'A senha é muito fraca. Use pelo menos 6 caracteres.';
-        default:
-          return `Ocorreu um erro (${err.code}). Tente novamente.`;
-      }
+        switch (err.code) {
+            case 'auth/user-not-found':
+            case 'auth/wrong-password':
+                return "E-mail ou senha inválidos.";
+            case 'auth/invalid-email':
+                return "O formato do e-mail é inválido.";
+            default:
+                return "Ocorreu um erro de autenticação.";
+        }
     }
     return "Ocorreu um erro inesperado. Tente novamente.";
   };
 
-  const login = async (email: string, password: string): Promise<User | null> => {
+  const login = async (email: string, password: string): Promise<void> => {
     setActionLoading(true);
     setError(null);
     try {
+      // 1. Autentica no Firebase para obter o idToken
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
-      const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-      if (userDoc.exists()) {
-        const userData = { id: firebaseUser.uid, ...userDoc.data() } as User;
-        setUser(userData);
-        return userData;
-      }
-      throw new Error("Perfil de usuário não encontrado no banco de dados.");
-    } catch (err) {
+      const idToken = await userCredential.user.getIdToken();
+
+      // 2. Envia o idToken para o backend para criar o cookie de sessão
+      await api.post('/sessionLogin', { idToken });
+
+      // 3. O listener onAuthStateChanged cuidará de buscar os dados do usuário e atualizar o estado
+
+    } catch (err: any) {
+      console.error("Falha no processo de login:", err);
       setError(getFriendlyErrorMessage(err));
-      setUser(null);
-      return null;
+      // Garante que o usuário seja deslogado do Firebase se a criação da sessão no backend falhar
+      if (auth.currentUser) {
+        await signOut(auth);
+      }
+      throw err; // Lança o erro para a UI poder reagir se necessário
     } finally {
       setActionLoading(false);
     }
   };
 
-  const register = async (name: string, email: string, password: string, profileType: ProfileType, documentId: string) => {
+  const register = async (name: string, cpf: string, email: string, password: string, profileType: ProfileType, documentId: string) => {
+    // A lógica de registro permanece a mesma
     setActionLoading(true);
     setError(null);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
-      const userData: any = {
-        name, email, profileType, documentId, createdAt: new Date(),
-        ...(profileType === 'organization' && { professionalIds: [], patientIds: [] }),
-        ...(profileType === 'responsavel' && { patientIds: [] }),
-        ...(profileType === 'profissional' && { organizationIds: [] }),
-      };
-      await setDoc(doc(db, "users", firebaseUser.uid), userData);
+      const userCreateData: UserCreate = { name, cpf, email, password, profileType, documentId, professionalIds: [], patientIds: [], organizationIds: [] };
+      await api.post('/api/v1/users/', userCreateData);
       return true;
     } catch (err) {
+      console.error("Registration error:", err);
       setError(getFriendlyErrorMessage(err));
       return false;
     } finally {
@@ -128,9 +123,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async (): Promise<void> => {
     setActionLoading(true);
-    await signOut(auth);
-    setUser(null);
-    setActionLoading(false);
+    setError(null);
+    try {
+      // 1. Informa ao backend para limpar o cookie de sessão
+      await api.post('/sessionLogout');
+    } catch (err) {
+      console.error("Erro ao limpar a sessão no backend:", err);
+      // Mesmo com erro no backend, prosseguimos com o logout no cliente
+    } finally {
+      // 2. Desloga do Firebase no cliente
+      await signOut(auth);
+      // O listener onAuthStateChanged cuidará de limpar o estado `user`
+      setActionLoading(false);
+    }
   };
 
   const value = { user, loading, actionLoading, error, login, register, logout };

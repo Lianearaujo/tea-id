@@ -1,4 +1,5 @@
-// src/types.ts
+
+// As "definições de tipo" para toda a aplicação.
 
 /** O tipo de perfil do usuário no sistema */
 export type ProfileType = 'responsavel' | 'profissional' | 'organization';
@@ -7,50 +8,69 @@ export type ProfileType = 'responsavel' | 'profissional' | 'organization';
 export type TherapyType = 'Fonoaudiologia' | 'Psicologia (ABA)' | 'Terapia Ocupacional' | 'Psicopedagogia';
 
 /**
- * Representa um usuário autenticado no sistema.
- * Contém os dados do Firestore.
+ * Representa um usuário no sistema, conforme definido pela API.
  */
 export interface User {
-  id: string; // Firebase Auth UID
+  id: string;
+  cpf: string;
   name: string;
   email: string;
   profileType: ProfileType;
-  documentId: string; // CPF para 'responsavel'/'profissional', CNPJ para 'organization'
-  createdAt: any; // Firestore Timestamp
-  
-  // Específico para 'organization'
-  professionalIds?: string[]; // UIDs dos profissionais ligados
-  patientIds?: string[]; // UIDs dos pacientes ligados
-  
-  // Específico para 'profissional'
-  organizationIds?: string[]; // UIDs das organizações onde atua
+  documentId: string; 
+  createdAt: string; // ISO 8601 string
+  updateAt: string; // ISO 8601 string
+  professionalIds: string[] | null;
+  patientIds: string[] | null;
+  organizationIds: string[] | null;
 }
 
 /**
- * Representa um paciente no sistema.
+ * Representa um paciente no sistema, conforme definido pela API.
  */
 export interface Patient {
   id: string;
+  cpf: string;
   name: string;
   birthDate: string;
   diagnosis: string;
-  avatarUrl?: string;
-  organizationId: string; // UID da organização "dona" deste paciente
-  guardianId: string; // UID do 'responsavel'
-  assignedProfessionalIds: string[]; // UIDs dos profissionais que podem ver este paciente
+  avatarUrl: string | null;
+  guardianId: string;
+  organizationIds: string[];
+  assignedProfessionalIds: string[];
+  requestsFollowUpIds: string[];
+  createdAt: string; // ISO 8601 string
+  updateAt: string; // ISO 8601 string
 }
 
 /**
- * Representa uma sessão de terapia.
+ * Representa uma sessão de terapia, conforme definido pela API.
  */
 export interface Session {
   id: string;
   date: string; // ISO 8601 string
-  therapistName: string; // Nome do profissional
-  therapistId: string; // UID do profissional
-  patientId: string; // UID do paciente
+  therapistName: string;
+  therapistId: string;
+  patientId: string;
   therapyType: TherapyType;
   notes: string;
-  audioUrl?: string;
-  aiFeedback?: string;
+  audioUrl: string | null;
+  aiFeedback: string | null;
 }
+
+// --- Tipos para Criação de Dados ---
+
+/**
+ * Dados necessários para criar um novo usuário via API.
+ */
+export type UserCreate = Omit<User, 'id' | 'createdAt' | 'updateAt'> & { password?: string };
+
+/**
+ * Dados necessários para criar um novo paciente via API.
+ */
+export type PatientCreate = Omit<Patient, 'id' | 'createdAt' | 'updateAt'>;
+
+/**
+ * Dados necessários para criar uma nova sessão via API.
+ */
+export type SessionCreate = Omit<Session, 'id'>;
+

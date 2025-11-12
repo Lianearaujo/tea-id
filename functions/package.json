@@ -1,0 +1,11 @@
+{
+  "name": "functions",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "express": "^4.19.2",
+    "firebase-admin": "^12.1.0",
+    "cors": "^2.8.5"
+  }
+}

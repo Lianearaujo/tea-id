@@ -5,6 +5,11 @@
 /.pnp
 .pnp.js
 
+/functions/node_modules
+/functions/serviceAccountKey.json
+
+/firebase-config.json
+
 # testing
 /coverage
 
